@@ -1,6 +1,6 @@
 # Project Selection Algorithm
 CS for Good Project Management Selection Site.
-This is a Django Web Application
+This is a Django Web Application.
 
 ## Introduction
 Assigning a large number of members to community service projects can be a daunting task. It requires considering multiple factors such as individual skills, project requirements, and member preferences. This project aims to create robust selection algorithms that automate this process, making it efficient, fair, and optimized.
