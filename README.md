@@ -12,4 +12,4 @@ Assigning a large number of members to community service projects can be a daunt
 - Preference Customization: Members have the option to provide their preferences for specific types of projects, enabling personalized assignment based on their interests.
 - Availability Constraints: The algorithms consider the availability of members and project timelines to avoid conflicts and ensure project completion.
 - Scalability: The algorithms are designed to handle large datasets and can efficiently assign over 300 members to projects.
-- Flexibility: The project provides a modular architecture, allowing easy customization and integration with existing system
+- Flexibility: The project provides a modular architecture, allowing easy customization and integration with existing system.
