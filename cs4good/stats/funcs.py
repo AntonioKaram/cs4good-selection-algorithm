@@ -10,7 +10,7 @@ def readProjects(file):
     ''' takes in a csv filename, returns a list of projects'''
 
     projects = []
-    with open(file) as f:
+    with open(file, encoding="utf-8", errors="ignore") as f:
         reader = csv.reader(f)
 
         # skip title how
@@ -21,7 +21,7 @@ def readProjects(file):
             # pull data out of file
             # the first column is a string, so it can't be converted to float
             # instead we just append one list comprehension to another
-            data = [row[0]] + [float(x) for x in row[1:]]
+            data = [row[0]] + [float(x) for x in row[1:-1]] + [row[-1]]
 
             # make a new project with data
             proj = Project(*data)
@@ -54,9 +54,10 @@ def readPeople(file):
             leaderApp = row[8]
             major = row[9]
             choices = row[4:6]
+            state = row[-1]
 
             # consolidate data
-            data = [name, email, grade, prevExp, prevLeader, leaderApp, major, choices]
+            data = [name, email, grade, prevExp, prevLeader, leaderApp, major, choices, state]
 
             # replace text answers with integers so you can do algebra with them
             for i in range(3,7):
@@ -182,10 +183,8 @@ def findMatches():
 
 def make_dfs(proj):
 
-    #make maps for places
     df1 = DataFrame(columns = ['grade', 'frequency'])
 
-    
     grades = {}
 
     minGrade = 2999
@@ -199,116 +198,238 @@ def make_dfs(proj):
     
 
     for member in proj.assigned:
-        grades[str(member[0].grade)] += 1
-
+        if proj.name in member[0].choices:
+            grades[str(member[0].grade)] += 1
+                
     for key,value in grades.items():
         grade = {'grade':key, 'frequency':value}
         df1 = df1.append(grade, ignore_index = True)
 
     df2 = DataFrame(columns = ['Item','Frequency'])
-    df2 = df2.append({'Item':'Want Leadership','Frequency':0}, ignore_index=True )
+    df2 = df2.append({'Item':'Want Leadership','Frequency':0}, ignore_index=True)
     df2 = df2.append({'Item':'Do Not Want Leadership','Frequency':0}, ignore_index=True)
 
     for member in proj.assigned:
-        if member[0].leaderApp == 1:
-            df2.iat[0,1] += 1
-        else:
-            df2.iat[1,1] += 1
+        if proj.name in member[0].choices:
+            if member[0].leaderApp == 1:
+                df2.iat[0,1] += 1
+            else:
+                df2.iat[1,1] += 1
 
-    return df1,df2
+    df3 = DataFrame(columns = ['State','Frequency'])
 
-def choicePerSeniority(projects):
+    states = {}
 
-    ''' 
-    num_proj = len(projects)
-
-    num_rows = int((num_proj /2)) + (num_proj % 2)
-    num_cols = 2
+    for member in proj.assigned:
+        if proj.name in member[0].choices:
+            states[member[0].state] = 0
     
-    count = 0
-
-    proj2D = []
+    for member in proj.assigned:
+        if proj.name in member[0].choices:
+            states[member[0].state] += 1
     
-    for i in range(num_rows):
-        row = []
-        for j in range(num_cols):
-            if count < num_proj:
-                row.append(make_dfs(projects[count])[0])
-            count += 1
+    for key,value in states.items():
+        df3 = df3.append({'State':key,'Frequency':value}, ignore_index=True)
 
-        proj2D.append(row) 
+    return df1,df2,df3
 
-    proj_names = []
-    for proj in projects:
-        proj_names.append(proj.name)
-
-    fig = make_subplots(rows = num_rows, cols = num_cols, start_cell= 'top-left', subplot_titles=tuple(proj_names) )
-
-    for i in range(num_rows):
-        for j in range(num_cols): 
-            if j < len(proj2D[i]):
-                for grade,freq in proj2D[i][j].groupby('grade'):  
-                    fig.add_trace(go.Bar(x = freq['grade'], y = freq['frequency'], 
-                    name = grade, 
-                    hovertemplate="Grade = %{x}<br>Number of Applicants = %{y}<extra></extra>"),
-                    row=i+1, col=j+1)
-                    
-                    fig.update_layout(legend_title_text = "grade")
-                    fig.update_xaxes(title_text="Seniority")
-                    fig.update_yaxes(title_text="Number of Applicants")
-                    fig.update_layout(showlegend=False, 
-                                      height = 800,
-                                      title_text= "Project Choice by Seniority")
-                    fig.update_yaxes(automargin=True)
-                    fig.update_xaxes(automargin=True)
-                    
-    #return fig
-    '''
-
+def makeFigs(projects):
+    
     figs = []
-    numRows = 1
+    numRows = 2
     numCols = 2
 
-    
-
     for proj in projects:
-        df1,df2 = make_dfs(proj)
+        df1,df2,df3 = make_dfs(proj)
 
+        fig = make_subplots(rows = numRows,
+                            cols = numCols,
+                            start_cell= 'top-left', 
+                            specs=[[{'type': 'xy'},
+                                    {'type': 'pie'}],
+                                    [{'type': 'choropleth'},
+                                    {'type': 'xy'}]],
+                            subplot_titles=('Popularity Per Seniority', 
+                                            'Number of Applicants Applying for Leadership',
+                                            'Number of Applicants per State'))
 
-        fig = make_subplots(rows = numRows, cols = numCols, start_cell= 'top-left', subplot_titles=('Popularity Per Seniority', 'Number of Applicants Applying for Leadership'))
-
+        #Popularity By Seniority
         for grade,freq in df1.groupby('grade'):  
-            fig.add_trace(go.Bar(x = freq['grade'], y = freq['frequency'], 
-                name = grade, 
-                hovertemplate="Grade = %{x}<br>Number of Applicants = %{y}<extra></extra>"),
+            fig.add_trace(go.Bar(x = freq['grade'], 
+                                y = freq['frequency'], 
+                                name = grade, 
+                                legendgroup = 'a',
+                                showlegend = False,
+                                hovertemplate="Grade = %{x}<br>Number of Applicants = %{y}<extra></extra>"),
                 row=1, col=1)
                     
-            fig.update_layout(legend_title_text = "grade")
             fig.update_xaxes(title_text="Seniority")
             fig.update_yaxes(title_text="Number of Applicants")
-            fig.update_layout(showlegend=False, 
-                              height = 800,
-                              title_text= proj.name)
-            fig.update_yaxes(automargin=True)
-            fig.update_xaxes(automargin=True)
         
-        for item,freq in df2.groupby('Item'):
-            fig.add_trace(go.Bar(x = freq['Item'], y = freq['Frequency'],
-                                 name = item,
-                                 hovertemplate ="Choice = %{x}<br>Applicants = %{y}<extra></extra>" ),
-                          row = 1, col = 2)
+        #Number of Applicants Who Want Leadership
 
+        fig.add_trace(go.Pie(
+                                labels = df2['Item'],
+                                values = df2['Frequency'],
+                                legendgroup = 'b',
+                                showlegend=True,
+                                hovertemplate ="Choice = %{label}<br>Applicants = %{value}<extra></extra>"),
+                        row = 1, col = 2)
+        
+        #Number of Applicants Per State
+        for state,freq in df3.groupby('State'):
+            fig.add_trace(go.Choropleth(legendgroup = 'c',
+                                        showlegend = False,
+                                        locationmode = "USA-states", 
+                                        locations = freq['State'], 
+                                        z = freq['Frequency'],
+                                        name = state,
+                                        coloraxis = 'coloraxis',
+                                        hovertemplate = "State = %{location}<br>Applicants = %{z}<extra></extra>"),
+                          row = 2, col = 1)
             fig.update_layout(legend_title_text = "Choice")
-            fig.update_xaxes(title_text="Choice")
-            fig.update_yaxes(title_text="Applicants")
-            fig.update_layout(showlegend=False, 
-                              height = 800,
-                              title_text= proj.name)
+            fig.update_layout(height = 800, 
+                              title_text= proj.name,
+                              geo = dict(scope='usa',
+                                         projection=go.layout.geo.Projection(type = 'albers usa'),
+                                         showlakes=True))
+
             fig.update_yaxes(automargin=True)
             fig.update_xaxes(automargin=True)
-
-        HTMLfig = fig.to_html()
+            fig.update_layout()
+            fig.update_coloraxes(showscale = False, colorscale = 'Greens')
+        
+        HTMLfig = fig.to_html(full_html=False)
 
         figs.append(HTMLfig)
 
     return figs
+
+def format_title(title, subtitle=None, subtitle_font_size=14):
+    title = f'<b>{title}</b>'
+    if not subtitle:
+        return title
+    subtitle = f'<span style="font-size: {subtitle_font_size}px;">{subtitle}</span>'
+    return f'{title}<br>{subtitle}'
+
+def makeTotFigs(projects):
+        
+    figs = []
+    numRows = 2
+    numCols = 2
+
+    df1,df2,df3 = total_dfs(projects)
+
+    totApps = df2['Frequency'].sum()
+
+    fig = make_subplots(rows = numRows,
+                        cols = numCols,
+                        start_cell= 'top-left', 
+                        specs=[[{'type': 'xy'},
+                                {'type': 'pie'}],
+                                [{'type': 'choropleth'},
+                                {'type': 'xy'}]],
+                        subplot_titles=('Popularity Per Seniority', 
+                                        'Number of Applicants Applying for Leadership',
+                                        'Number of Applicants per State'))
+
+    #Popularity By Seniority
+    for grade,freq in df1.groupby('project'):  
+        fig.add_trace(go.Bar(x = freq['project'], 
+                            y = freq['frequency'], 
+                            name = grade, 
+                            legendgroup = 'a',
+                            showlegend = False,
+                            hovertemplate="Project = %{x}<br>Number of Applicants = %{y}<extra></extra>"),
+            row=1, col=1)
+                
+        fig.update_xaxes(title_text="Seniority")
+        fig.update_yaxes(title_text="Number of Applicants")
+    
+    #Number of Applicants Who Want Leadership
+
+    fig.add_trace(go.Pie(
+                            labels = df2['Item'],
+                            values = df2['Frequency'],
+                            legendgroup = 'b',
+                            showlegend=True,
+                            hovertemplate ="Choice = %{label}<br>Applicants = %{value}<extra></extra>"),
+                    row = 1, col = 2)
+    
+    #Number of Applicants Per State
+    for state,freq in df3.groupby('State'):
+        fig.add_trace(go.Choropleth(legendgroup = 'c',
+                                    showlegend = False,
+                                    locationmode = "USA-states", 
+                                    locations = freq['State'], 
+                                    z = freq['Frequency'],
+                                    name = state,
+                                    coloraxis = "coloraxis",
+                                    hovertemplate = "State = %{location}<br>Applicants = %{z}<extra></extra>"),
+                        row = 2, col = 1)
+        fig.update_layout(legend_title_text = "Choice")
+        fig.update_layout(height = 800, 
+                            title_text= format_title("Total Applicant Data", "Total Number of Applicants: %s"%(totApps)),
+                            geo = dict(scope='usa',
+                                        projection=go.layout.geo.Projection(type = 'albers usa'),
+                                        showlakes=True))
+
+        fig.update_yaxes(automargin=True)
+        fig.update_xaxes(automargin=True)
+        fig.update_coloraxes(showscale = False, colorscale = 'Greens') #Greens
+    
+    HTMLfig = fig.to_html(full_html=False)
+
+    figs.append(HTMLfig)
+
+    return figs
+
+def total_dfs(projects):
+    df1 = DataFrame(columns = ['project', 'frequency'])
+
+    applicants = {}
+
+    for proj in projects:
+        applicants[proj.name] = 0
+
+    for proj in projects:
+        for member in proj.assigned:
+            if proj.name in member[0].choices:
+                applicants[proj.name] += 1
+
+    for key,value in applicants.items():
+        df1 = df1.append({'project':key,'frequency':value}, ignore_index=True)
+    
+    
+    df2 = DataFrame(columns = ['Item','Frequency'])
+    df2 = df2.append({'Item':'Want Leadership','Frequency':0}, ignore_index=True)
+    df2 = df2.append({'Item':'Do Not Want Leadership','Frequency':0}, ignore_index=True)
+
+    for proj in projects:
+        for member in proj.assigned:
+            if proj.name == member[0].choices[0]:
+                if member[0].leaderApp == 1:
+                    df2.iat[0,1] += 1
+                else:
+                    df2.iat[1,1] += 1
+    
+    df3 = DataFrame(columns = ['State','Frequency'])
+
+    states = {}
+
+    for proj in projects:
+        for member in proj.assigned:
+            if proj.name == member[0].choices[0]:
+                states[member[0].state] = 0
+
+
+    for proj in projects:
+        for member in proj.assigned:
+            if proj.name == member[0].choices[0]:
+                states[member[0].state] += 1
+    
+    for key,value in states.items():
+        df3 = df3.append({'State':key,'Frequency':value}, ignore_index=True)
+    
+    
+    return df1,df2,df3
