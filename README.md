@@ -1,4 +1,4 @@
-# project-management
+# Project Selection Algorithm
 CS for Good Project Management Selection Site.
 This is a Django Web Application
 
